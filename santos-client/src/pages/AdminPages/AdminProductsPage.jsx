@@ -19,8 +19,12 @@ const emptyForm = {
   stock: 1,
   condition: 'used',
   status: 'available',
-  images: '',
+  imageFile: null,
+  currentImage: '',
 };
+
+const maxImageSize = 5 * 1024 * 1024;
+const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
 const AdminProductsPage = () => {
   const { user, token } = useAuth();
@@ -35,6 +39,18 @@ const AdminProductsPage = () => {
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [imagePreview, setImagePreview] = useState('');
+
+  useEffect(() => {
+    if (!form.imageFile) {
+      setImagePreview(form.currentImage);
+      return undefined;
+    }
+
+    const previewUrl = URL.createObjectURL(form.imageFile);
+    setImagePreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [form.imageFile, form.currentImage]);
 
   const loadProducts = () => {
     setLoading(true);
@@ -68,7 +84,8 @@ const AdminProductsPage = () => {
       stock: product.stock,
       condition: product.condition,
       status: product.status,
-      images: (product.images || []).join(', '),
+      imageFile: null,
+      currentImage: product.images?.[0] || '',
     });
     setFormError('');
     setShowForm(true);
@@ -78,27 +95,46 @@ const AdminProductsPage = () => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    setFormError('');
+    if (!file) return;
+    if (!allowedImageTypes.includes(file.type)) {
+      setFormError('Choose a JPEG, PNG, or WebP image.');
+      setForm((prev) => ({ ...prev, imageFile: null }));
+      e.target.value = '';
+      return;
+    }
+    if (file.size > maxImageSize) {
+      setFormError('Image must be 5 MiB or smaller.');
+      setForm((prev) => ({ ...prev, imageFile: null }));
+      e.target.value = '';
+      return;
+    }
+    setForm((prev) => ({ ...prev, imageFile: file }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+    if (!editingId && !form.imageFile) {
+      setFormError('Select a product image before creating the product.');
+      return;
+    }
     setSaving(true);
 
-    const payload = {
-      productName: form.productName,
-      description: form.description,
-      price: Number(form.price),
-      category: form.category,
-      stock: Number(form.stock),
-      condition: form.condition,
-      status: form.status,
-      images: form.images
-        .split(',')
-        .map((url) => url.trim())
-        .filter(Boolean),
-    };
+    const payload = new FormData();
+    payload.append('productName', form.productName);
+    payload.append('description', form.description);
+    payload.append('price', String(Number(form.price)));
+    payload.append('category', form.category);
+    payload.append('stock', String(Number(form.stock)));
+    payload.append('condition', form.condition);
+    payload.append('status', form.status);
+    if (form.imageFile) payload.append('image', form.imageFile);
 
     if (!editingId) {
-      payload.seller = user.id;
+      payload.append('seller', user.id);
     }
 
     try {
@@ -257,15 +293,25 @@ const AdminProductsPage = () => {
               </div>
 
               <div className="sm:col-span-2">
-                <label className="text-xs font-medium text-zinc-700">
-                  Image URLs (comma-separated)
+                <label htmlFor="product-image" className="text-xs font-medium text-zinc-700">
+                  Product image {editingId ? '(optional; choose a file to replace it)' : '(required)'}
                 </label>
                 <input
-                  value={form.images}
-                  onChange={handleChange('images')}
-                  placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
-                  className={inputClasses}
+                  id="product-image"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleImageChange}
+                  className={`${inputClasses} file:mr-4 file:rounded-lg file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white`}
                 />
+                <p className="mt-2 text-xs text-zinc-500">JPEG, PNG, or WebP · maximum 5 MiB</p>
+                {imagePreview && (
+                  <div className="mt-4 max-w-sm overflow-hidden rounded-2xl border-2 border-zinc-900 bg-zinc-200">
+                    <img src={imagePreview} alt="Product image preview" className="aspect-4/3 w-full object-cover" />
+                    <p className="px-3 py-2 text-xs text-zinc-600">
+                      {form.imageFile ? 'Preview of selected upload' : 'Current product image'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 sm:col-span-2">
@@ -314,6 +360,13 @@ const AdminProductsPage = () => {
                   ₱{product.price.toLocaleString()}
                 </p>
                 <p className="text-xs text-zinc-600">Stock: {product.stock}</p>
+                {product.images?.[0] && (
+                  <img
+                    src={product.images[0]}
+                    alt={product.productName}
+                    className="mt-4 aspect-4/3 w-full rounded-xl border border-zinc-200 object-cover"
+                  />
+                )}
 
                 <div className="mt-4 flex gap-2">
                   <button

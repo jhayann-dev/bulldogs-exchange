@@ -2,6 +2,15 @@ import Product from "../Models/productModel.js";
 import Category from "../Models/categoryModel.js";
 import User from "../Models/userModel.js";
 import { HttpStatus } from "../config/constants.js";
+import cloudinary from "../config/cloudinary.js";
+
+const uploadImageToCloudinary = async (file) => {
+  const dataUri = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+  return cloudinary.uploader.upload(dataUri, {
+    folder: "bulldogs-exchange/products",
+    resource_type: "image",
+  });
+};
 
 export const getAllProducts = async (req, res) => {
   try {
@@ -20,7 +29,6 @@ export const getAllProducts = async (req, res) => {
 
     const filter = {};
 
-    // Filter by category
     if (category) {
       const matchedCategory = await Category.findOne({
         categoryName: { $regex: `^${category}$`, $options: "i" },
@@ -44,7 +52,6 @@ export const getAllProducts = async (req, res) => {
       filter.category = matchedCategory._id;
     }
 
-    // Filter by supplier (the seller/user who listed the product)
     if (supplier) {
       const matchedSellers = await User.find({
         $or: [
@@ -71,7 +78,6 @@ export const getAllProducts = async (req, res) => {
       filter.seller = { $in: matchedSellers.map((s) => s._id) };
     }
 
-    // Keyword search across productName and description
     if (search) {
       filter.$or = [
         { productName: { $regex: search, $options: "i" } },
@@ -79,7 +85,6 @@ export const getAllProducts = async (req, res) => {
       ];
     }
 
-    // Sorting
     let sortOption = {};
     if (sort) {
       const sortField = sort.startsWith("-") ? sort.substring(1) : sort;
@@ -145,8 +150,23 @@ export const getProductById = async (req, res) => {
 };
 
 export const createProduct = async (req, res) => {
+  if (!req.file) {
+    return res.status(HttpStatus.BAD_REQUEST).json({
+      success: false,
+      message: "A product image is required.",
+    });
+  }
+
   try {
-    const newProduct = await Product.create(req.body);
+    const productData = { ...req.body };
+    delete productData.images;
+    delete productData.imagePublicIds;
+
+    const uploadedImage = await uploadImageToCloudinary(req.file);
+    productData.images = [uploadedImage.secure_url];
+    productData.imagePublicIds = [uploadedImage.public_id];
+
+    const newProduct = await Product.create(productData);
 
     res.status(HttpStatus.CREATED).json({
       success: true,
@@ -161,11 +181,59 @@ export const createProduct = async (req, res) => {
   }
 };
 
+export const uploadProductImage = async (req, res) => {
+  if (!req.file) {
+    return res.status(HttpStatus.BAD_REQUEST).json({
+      success: false,
+      message: "An image file is required.",
+    });
+  }
+
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // Multer uses memory storage, so upload the file buffer as a data URI.
+    const result = await uploadImageToCloudinary(req.file);
+
+    product.images.push(result.secure_url);
+    product.imagePublicIds.push(result.public_id);
+    await product.save();
+
+    return res.status(HttpStatus.OK).json({
+      success: true,
+      imageUrl: result.secure_url,
+      publicId: result.public_id,
+      product,
+    });
+  } catch (error) {
+    return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export const updateProduct = async (req, res) => {
   try {
+    const updateData = { ...req.body };
+    delete updateData.images;
+    delete updateData.imagePublicIds;
+
+    if (req.file) {
+      const uploadedImage = await uploadImageToCloudinary(req.file);
+      updateData.images = [uploadedImage.secure_url];
+      updateData.imagePublicIds = [uploadedImage.public_id];
+    }
+
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       {
         new: true,
         runValidators: true,

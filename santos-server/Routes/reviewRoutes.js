@@ -8,7 +8,7 @@ import {
   updateReview,
   deleteReview,
 } from "../Controllers/reviewController.js";
-import { protect, authorize } from "../middleware/authMiddleware.js";
+import { protect, authorize } from "../middleware/authentication.js";
 
 const router = express.Router();
 

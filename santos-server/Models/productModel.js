@@ -21,12 +21,17 @@ const productSchema = new mongoose.Schema(
 
     category: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Category", // Referenced Document -> Part 4
+      ref: "Category", 
       required: true,
     },
 
     images: {
-      type: [String], // array of image URLs
+      type: [String], 
+      default: [],
+    },
+
+    imagePublicIds: {
+      type: [String],
       default: [],
     },
 
@@ -56,16 +61,15 @@ const productSchema = new mongoose.Schema(
   },
 
   {
-    timestamps: true, // createdAt, updatedAt
+    timestamps: true, 
   }
 );
 
-// Part 8: indexes for frequently searched fields
 
 productSchema.index({
   productName: "text",
   description: "text",
-}); // full-text search
+}); 
 
 productSchema.index({ category: 1 });
 

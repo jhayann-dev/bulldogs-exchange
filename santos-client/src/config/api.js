@@ -164,10 +164,14 @@ export const changePassword = async (userId, payload, token) => {
 
 // Admin: Products
 export const createProduct = async (payload, token) => {
+  const body = payload instanceof FormData ? payload : JSON.stringify(payload);
   const res = await fetch(`${API_BASE_URL}/v1/product`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
+    headers: {
+      ...(payload instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      Authorization: `Bearer ${token}`,
+    },
+    body,
   });
   const data = await res.json();
   if (!res.ok || !data.success) throw new Error(data.message || "Failed to create product");
@@ -175,10 +179,14 @@ export const createProduct = async (payload, token) => {
 };
 
 export const updateProduct = async (id, payload, token) => {
+  const body = payload instanceof FormData ? payload : JSON.stringify(payload);
   const res = await fetch(`${API_BASE_URL}/v1/product/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
+    headers: {
+      ...(payload instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      Authorization: `Bearer ${token}`,
+    },
+    body,
   });
   const data = await res.json();
   if (!res.ok || !data.success) throw new Error(data.message || "Failed to update product");

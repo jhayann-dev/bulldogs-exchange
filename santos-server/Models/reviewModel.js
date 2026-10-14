@@ -4,13 +4,13 @@ const reviewSchema = new mongoose.Schema(
   {
     product: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Product", // Referenced Document -> Part 4
+      ref: "Product", 
       required: true,
     },
 
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // Referenced Document -> Part 4
+      ref: "User", 
       required: true,
     },
 

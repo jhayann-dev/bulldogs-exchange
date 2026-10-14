@@ -1,7 +1,5 @@
 import mongoose from "mongoose";
 
-// Embedded sub-document -> Part 4 (locks in price/qty at time of checkout)
-
 const orderItemSchema = new mongoose.Schema(
   {
     product: {
@@ -29,12 +27,12 @@ const orderSchema = new mongoose.Schema(
   {
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // Referenced Document -> Part 4
+      ref: "User", 
       required: true,
     },
 
     items: {
-      type: [orderItemSchema], // Embedded Documents -> Part 4
+      type: [orderItemSchema], 
       required: true,
       validate: (v) => Array.isArray(v) && v.length > 0,
     },
@@ -77,11 +75,10 @@ const orderSchema = new mongoose.Schema(
   },
 
   {
-    timestamps: true, // createdAt, updatedAt
+    timestamps: true,
   }
 );
 
-// Part 8: indexes for frequently searched fields
 
 orderSchema.index({ user: 1 });
 
@@ -89,7 +86,7 @@ orderSchema.index({ orderStatus: 1 });
 
 orderSchema.index({ paymentStatus: 1 });
 
-orderSchema.index({ createdAt: -1 }); // recent orders first
+orderSchema.index({ createdAt: -1 });
 
 const Order = mongoose.model("Order", orderSchema);
 
