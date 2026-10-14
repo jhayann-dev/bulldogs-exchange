@@ -17,6 +17,8 @@ dotenv.config();
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -32,12 +34,20 @@ app.use(
         upgradeInsecureRequests: [],
       },
     },
-    frameguard: { action: "sameorigin" }, // X-Frame-Options: SAMEORIGIN
-    referrerPolicy: { policy: "strict-origin-when-cross-origin" }, // Referrer-Policy
+    frameguard: { action: "sameorigin" },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://bulldogs-exchange.vercel.app",
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
 const corsOptions = {
-  origin: ["http://localhost:5173", "http://localhost:5000"],
+  origin: allowedOrigins,
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Origin", "X-Requested-With", "Accept", "Content-Type", "Authorization"],
@@ -48,6 +58,10 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(auditLoggerMiddleware);
 
+app.get("/", (req, res) => {
+  res.json({ status: "ok", app: "bulldogs-exchange" });
+});
+
 app.use("/api/user", userRoutes);
 app.use("/api/category", categoryRoutes);
 app.use("/api/v1/product", productRoutes);
@@ -55,6 +69,7 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/order", orderRoutes);
 app.use("/api/review", reviewRoutes);
 app.use("/api/auth", authRoutes);
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
@@ -62,6 +77,7 @@ mongoose
   })
   .catch((error) => {
     console.error("MongoDB connection error:", error);
+    process.exit(1);
   });
 
 const PORT = process.env.PORT || 5000;
